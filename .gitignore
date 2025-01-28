@@ -1,0 +1,8 @@
+*~
+*.swp
+*.o
+*.service
+config.ini
+opclock
+opclock-waitnetwork
+opclock-waittimesync

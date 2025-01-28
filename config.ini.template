@@ -1,0 +1,8 @@
+[backlight]
+# level: 30-180
+level = 100
+
+[icinga]
+hostname = icinga-instance.com
+subdir = /icingaweb2
+query_url = /monitoring/list/services?service_problem=1&service_notifications_enabled=1&service_acknowledged=0&limit=10&sort=service_last_state_change

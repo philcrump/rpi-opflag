@@ -1,0 +1,12 @@
+[Unit]
+Description=Opflag pre-network
+After=local-fs.target sysinit.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory={{directory}}
+ExecStart={{directory}}/opflag-waitnetwork
+
+[Install]
+WantedBy=basic.target

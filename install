@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+
+source_dir="$(cd $(dirname ${BASH_SOURCE[0]}) && pwd)"
+cd "$source_dir"
+
+services="opflag opflag-waitnetwork"
+
+if [[ $(id -u) -ne 0 ]];
+then
+  echo "Error: Script must be run as superuser!";
+  exit;
+fi
+
+echo "Installing/updating ${services} .."
+
+for service in $services; do
+  skel="${service}.service.skel"
+  temp="${service}.service"
+  sed "s#{{directory}}#${source_dir}#g" < $skel > $temp
+  mv -f $temp /etc/systemd/system/
+done
+
+systemctl daemon-reload
+
+echo "Enabling at boot..";
+
+for service in $services; do
+  sudo systemctl enable "$service"
+done
+
+echo "Install Complete!";

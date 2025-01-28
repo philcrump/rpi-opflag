@@ -1,0 +1,15 @@
+[Unit]
+Description=Opflag
+After=network-online.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory={{directory}}
+ExecStart={{directory}}/opflag
+Restart=always
+RestartSec=2
+TimeoutStopSec=3
+
+[Install]
+WantedBy=multi-user.target
