@@ -51,7 +51,7 @@ Reboot and let the application start automatically.
 
 `sudo systemctl disable getty@tty1.service`
 
-#### /boot/config.txt:
+#### /boot/firmware/config.txt:
 
 * Comment out the line: `dtoverlay=vc4-fkms-v3d`
 * Append the following lines:
@@ -62,10 +62,10 @@ dtoverlay=pi3-disable-bt
 ```
 * Optional, requires RPi4(?) and UHS-1 SD Card, append the line: `dtoverlay=sdtweak,overclock_50=100`
 
-#### /boot/cmdline.txt
+#### /boot/firmware/cmdline.txt
 
 * Remove `console=tty1`
-* Append `vt.global_cursor_default=0 logo.nologo`
+* Append ` vt.global_cursor_default=0 logo.nologo`
 
 ## Testing
 
@@ -80,17 +80,8 @@ curl -k -s -S -i -u username:password -H 'Accept: application/json' \
  'http://<host>/icingaweb2/monitoring/list/services?service_problem=1&service_notifications_enabled=1&service_acknowledged=0&limit=10&sort=service_last_state_change'
 ```
 
-### Waiting for Network on boot
-
-The application will wait for network-online target to be reached before starting the main app.
-
-<p float="left">
-  <img src="/img/waitfornetwork.png" width="49%" />
-</p>
-
-
 ## Licensing
 
 Unless otherwise specified at the top of the relevant file, all materials of this project are licensed under the BSD 3-clause License (New BSD License).
 
-Copyright (c) Phil Crump 2022. All rights reserved.
+Copyright (c) Phil Crump 2025. All rights reserved.
