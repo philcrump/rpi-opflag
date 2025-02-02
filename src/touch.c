@@ -243,7 +243,6 @@ static void touch_run(char *touch_path, void (*touch_callback)(int type, int x, 
 #define xTouched(ax, aw)                ((touch_x > ax) && (touch_x < (ax + aw)))
 #endif
 
-static bool touch_backlight_ison = true;
 static uint64_t last_touch_start_time = 0;
 static uint64_t last_firsttouch_start_time = 0;
 
@@ -262,7 +261,11 @@ static void touch_process(int touch_type, int touch_x, int touch_y, app_state_t 
       return;
     }
 
-    if(touch_backlight_ison)
+    if(app_state_ptr->config.acknowledge_single_touch)
+    {
+      app_state_ptr->flag_acknowledged = true;
+    }
+    else if(app_state_ptr->config.acknowledge_double_touch)
     {
       if(current_time < (last_firsttouch_start_time+500))
       {

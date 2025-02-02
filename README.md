@@ -1,14 +1,36 @@
-# OpFLag
-
-_Work In Progress_
+# OpFlag
 
 Icinga audio/visual alarm flag for network operations.
 
-This software has been developed with the official Raspberry Pi 7" touchscreen and a Raspberry Pi 4, and Raspberry Pi OS Lite (64-bit) (Bullseye.)
+This software has been developed with the official Raspberry Pi 7" touchscreen and a Raspberry Pi 4, and Raspberry Pi OS Lite (64-bit) Bookworm.
+
+## Typical screen states
+
+### Nominal (no alarms)
+
+<p float="center">
+  <img src="/img/screen-nominal.jpg" width="49%" />
+</p>
+
+### Connection Failure (between device and icinga)
+
+<p float="center">
+  <img src="/img/screen-connectionfailure.jpg" width="49%" />
+</p>
+
+### Active alarms
+
+<p float="center">
+  <img src="/img/screen-alarms.gif" width="49%" />
+</p>
+
+Tapping the touchscreen will 'acknowledge' this state, switching off the flashing and the buzzer (if connected.) This acknowledgement is internal to this device, and is not an Icinga acknowledgement.
+
+Flag colour in this state is in fact red.
 
 ## Dependencies
 
-`sudo apt install build-essential libcurl4-openssl-dev`
+`sudo apt install git build-essential libcurl4-openssl-dev libjson-c-dev liblgpio-dev`
 
 ## Configuration
 
@@ -18,9 +40,12 @@ Copy _config.ini.template_ to _config.ini_ and customise.
 
 ```
 make
-sudo systemctl enable systemd-time-wait-sync
 sudo ./install
 ```
+
+Optionally apply the modifications below.
+
+Reboot and let the application start automatically.
 
 ### Raspberry Pi Modifications for fast & graphically-clean boot
 
@@ -42,9 +67,18 @@ dtoverlay=pi3-disable-bt
 * Remove `console=tty1`
 * Append `vt.global_cursor_default=0 logo.nologo`
 
-## Usage
+## Testing
 
-Reboot to apply the boot modifications and let the application start automatically.
+`./test-http-endpoints/no-alarms.py` - Will simulate a nominal situation.
+
+`./test-http-endpoints/active-alarms.py` - Will simulate a single WARNING and a single CRITICAL alarm.
+
+### Testing of Icinga Polling (for development)
+
+```bash
+curl -k -s -S -i -u username:password -H 'Accept: application/json' \
+ 'http://<host>/icingaweb2/monitoring/list/services?service_problem=1&service_notifications_enabled=1&service_acknowledged=0&limit=10&sort=service_last_state_change'
+```
 
 ### Waiting for Network on boot
 
@@ -54,13 +88,6 @@ The application will wait for network-online target to be reached before startin
   <img src="/img/waitfornetwork.png" width="49%" />
 </p>
 
-
-### Reference
-
-```bash
-curl -k -s -S -i -u username:password -H 'Accept: application/json' \
- 'http://<host>/icingaweb2/monitoring/list/services?service_problem=1&service_notifications_enabled=1&service_acknowledged=0&limit=10&sort=service_last_state_change'
-```
 
 ## Licensing
 

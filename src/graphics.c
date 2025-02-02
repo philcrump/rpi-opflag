@@ -16,15 +16,24 @@
 #include "util/timing.h"
 
 
+/** DATE **/
+
+#define DATE_WIDTH      350
+#define DATE_HEIGHT     55
+static screen_pixel_t date_buffer[DATE_HEIGHT][DATE_WIDTH] __attribute__ ((aligned (NEON_ALIGNMENT))) = { 0 };
+
+#define DATE_POS_X    15
+#define DATE_POS_Y    5
+
 /** Alarms **/
 
-#define ALARM_LINE_WIDTH      350
+#define ALARM_LINE_WIDTH      370
 #define ALARM_LINE_HEIGHT     300
-#define ALARM_EACH_LINE_HEIGHT  50
-//static screen_pixel_t alarm_line_buffer[ALARM_LINE_HEIGHT][ALARM_LINE_WIDTH] __attribute__ ((aligned (NEON_ALIGNMENT))) = { 0 };
+#define ALARM_EACH_LINE_HEIGHT  30
+static screen_pixel_t alarm_line_buffer[ALARM_LINE_HEIGHT][ALARM_LINE_WIDTH] __attribute__ ((aligned (NEON_ALIGNMENT))) = { 0 };
 
-#define ALARM_LINE_POS_X    25
-#define ALARM_LINE_POS_Y    25
+#define ALARM_LINE_POS_X    15
+#define ALARM_LINE_POS_Y    65
 
 /** Connection Status **/
 
@@ -125,175 +134,138 @@ const screen_pixel_t graphics_amber_pixel =
   .Blue = 0x00
 };
 
-#if 0
-static inline void event_line_render_font_cb(int x, int y, screen_pixel_t *pixel_ptr)
+const screen_pixel_t graphics_purple_pixel =
 {
-  memcpy(&(event_line_buffer[y][x]), pixel_ptr, sizeof(screen_pixel_t));
+  .Alpha = 0x80,
+  .Red = 0xAA,
+  .Green = 0x44,
+  .Blue = 0xFF
+};
+
+static inline void datetime_render_font_cb(int x, int y, screen_pixel_t *pixel_ptr)
+{
+  memcpy(&(date_buffer[y][x]), pixel_ptr, sizeof(screen_pixel_t));
 }
 
-static void event_line_graphic_transition(int x, int y, int height, int width, const screen_pixel_t *pixel_start_ptr, const screen_pixel_t *pixel_end_ptr)
+void datetime_render(char *datetime_string)
 {
-  /* For each row */
-  for(int i = 0; i < height; i++)
+  int32_t i, j;
+
+  /* Clear buffer */
+  for(i = 0; i < DATE_HEIGHT; i++)
   {
-    /* For each pixel in row */
-    for(int j = 0; j < width; j++)
+    for(j = 0; j <DATE_WIDTH; j++)
     {
-      if(((float)(j)/width) < ((float)(height-i)/height))
-      {
-        memcpy(&(event_line_buffer[i+y][j+x]), pixel_start_ptr, sizeof(screen_pixel_t));
-      }
-      else
-      {
-        memcpy(&(event_line_buffer[i+y][j+x]), pixel_end_ptr, sizeof(screen_pixel_t));
-      }
+      memcpy(&(date_buffer[i][j]), &graphics_black_pixel, sizeof(screen_pixel_t));
     }
+  }
+
+  font_render_string_with_callback(
+    0, // Align left
+    (DATE_HEIGHT - font_dejavu_sans_36.height) / 2,
+    &font_dejavu_sans_36,
+    datetime_string,
+    datetime_render_font_cb
+  );
+
+  for(i = 0; i < DATE_HEIGHT; i++)
+  {
+    screen_setPixelLine(DATE_POS_X, DATE_POS_Y + i, DATE_WIDTH, date_buffer[i]);
   }
 }
 
-void event_line_render(event_t *events_ptr, bool show_previous_expired_event)
+static inline void alarm_line_render_font_cb(int x, int y, screen_pixel_t *pixel_ptr)
 {
+  memcpy(&(alarm_line_buffer[y][x]), pixel_ptr, sizeof(screen_pixel_t));
+}
+
+void alarms_render(bool http_ok, alarm_t *alarms_ptr)
+{
+  int32_t i, j;
+
   /* Clear all lines buffer */
-  for(uint32_t i = 0; i < EVENT_LINE_HEIGHT; i++)
+  for(i = 0; i < ALARM_LINE_HEIGHT; i++)
   {
-    for(uint32_t j = 0; j < EVENT_LINE_WIDTH; j++)
+    for(j = 0; j < ALARM_LINE_WIDTH; j++)
     {
-      memcpy(&(event_line_buffer[i][j]), &graphics_black_pixel, sizeof(screen_pixel_t));
+      memcpy(&(alarm_line_buffer[i][j]), &graphics_black_pixel, sizeof(screen_pixel_t));
     }
   }
 
-  event_t *event_cursor;
-  event_t *event_previous_cursor;
+  alarm_t *alarm_cursor = alarms_ptr;
 
-  /* Find the next event */
-
-  event_cursor = events_ptr;
-  event_previous_cursor = NULL;
-
-  while(event_cursor != NULL
-    && event_cursor->next != NULL
-    && event_cursor->countdown_int > 0)
+  if(http_ok == false)
   {
-    event_previous_cursor = event_cursor;
-    event_cursor = event_cursor->next;
-  }
+    /* Connection failed, render blank */
 
-  if(event_cursor == NULL || event_cursor->countdown_int >= 60)
-  {
-    /* No events or newest event is more than 1 minute ago */
-
-    /* Draw message, render early, and exit */
-    font_render_string_with_callback(
-      0, // Align left
-      10, // Top
-      &font_dejavu_sans_36,
-      "No Events scheduled",
-      event_line_render_font_cb
-    );
-    for(uint32_t i = 0; i < EVENT_LINE_HEIGHT; i++)
+    for(i = 0; i < ALARM_LINE_HEIGHT; i++)
     {
-      screen_setPixelLine(EVENT_LINE_POS_X, EVENT_LINE_POS_Y + i, EVENT_LINE_WIDTH, event_line_buffer[i]);
+      screen_setPixelLine(ALARM_LINE_POS_X, ALARM_LINE_POS_Y + i, ALARM_LINE_WIDTH, alarm_line_buffer[i]);
     }
     return;
   }
-  else if(show_previous_expired_event
-    && event_previous_cursor != NULL)
+
+  if(alarm_cursor == NULL)
   {
-    /* If a previous event exists, roll the cursor back one */
-    event_cursor = event_previous_cursor;
+    /* No alarms */
+
+    /* Draw message, render early, and exit */
+    font_render_colour_string_with_callback(
+      0, // Align left
+      0, // Top
+      &font_dejavu_sans_16,
+      &graphics_black_pixel, &graphics_green_pixel,
+      "No Alarms",
+      alarm_line_render_font_cb
+    );
+
+    for(i = 0; i < ALARM_LINE_HEIGHT; i++)
+    {
+      screen_setPixelLine(ALARM_LINE_POS_X, ALARM_LINE_POS_Y + i, ALARM_LINE_WIDTH, alarm_line_buffer[i]);
+    }
+    return;
   }
 
   /* Render event list */
-  int events_displayed = 0;
+  int alarms_displayed = 0;
   screen_pixel_t *text_colour_ptr;
-  while(event_cursor != NULL && events_displayed <= 6)
+  char alarm_display_description[46];
+  while(alarm_cursor != NULL && alarms_displayed <= 10)
   {
-    /* This is an ugly thing to blank the top line when the next line is == 0, so just about to tick over */
-    if(false == (
-         show_previous_expired_event
-      && events_displayed == 0
-      && event_cursor->next != NULL
-      && event_cursor->next->countdown_int == 0))
+    /* Get text colour from severity */
+    if(alarm_cursor->severity == 1) // Warning
     {
-      /* Get text colour from urgency */
-      if(event_cursor->countdown_int > 0)
-      {
-        text_colour_ptr = (screen_pixel_t *)&graphics_darkgrey_pixel;
-      }
-      else if(event_cursor->countdown_int == 0)
-      {
-        text_colour_ptr = (screen_pixel_t *)&graphics_red_pixel;
-      }
-      else if(event_cursor->countdown_int > -60)
-      {
-        text_colour_ptr = (screen_pixel_t *)&graphics_amber_pixel;
-      }
-      else
-      {
-        text_colour_ptr = (screen_pixel_t *)&graphics_white_pixel;
-      }
-
-      /* Render description text */
-      font_render_colour_string_with_callback(
-        0, // Align left
-        (events_displayed * EVENT_EACH_LINE_HEIGHT),
-        &font_dejavu_sans_36, &graphics_black_pixel, text_colour_ptr,
-        event_cursor->description, event_line_render_font_cb
-      );
-
-      /* Draw graphic for all events now or in the future */
-      if(event_cursor->countdown_int <= 0)
-      {
-        if(event_cursor->type == 1)
-        {
-          // AoS
-          event_line_graphic_transition(410, (events_displayed * EVENT_EACH_LINE_HEIGHT)+5, 30, 100, &graphics_black_pixel, &graphics_blue_pixel);
-        }
-        else if(event_cursor->type == 2)
-        {
-          // LoS
-          event_line_graphic_transition(410, (events_displayed * EVENT_EACH_LINE_HEIGHT)+5, 30, 100, &graphics_blue_pixel, &graphics_black_pixel);
-        }
-        else if(event_cursor->type == 3)
-        {
-          // Uplink Start
-          event_line_graphic_transition(410, (events_displayed * EVENT_EACH_LINE_HEIGHT)+5, 30, 100, &graphics_black_pixel, &graphics_yellow_pixel);
-        }
-        else if(event_cursor->type == 4)
-        {
-          // Uplink Stop
-          event_line_graphic_transition(410, (events_displayed * EVENT_EACH_LINE_HEIGHT)+5, 30, 100, &graphics_yellow_pixel, &graphics_black_pixel);
-        }
-      }
-
-      /* Draw countdown timer string */
-      font_render_colour_string_with_callback(
-        EVENT_LINE_WIDTH - font_width_string(&font_dejavu_sans_36, event_cursor->countdown_string), // Align right
-        (events_displayed * EVENT_EACH_LINE_HEIGHT),
-        &font_dejavu_sans_36, &graphics_black_pixel, text_colour_ptr,
-        event_cursor->countdown_string, event_line_render_font_cb
-      );
+      text_colour_ptr = (screen_pixel_t *)&graphics_amber_pixel;
+    }
+    else if(alarm_cursor->severity == 2) // Critical
+    {
+      text_colour_ptr = (screen_pixel_t *)&graphics_red_pixel;
+    }
+    else // 3 = Unknown
+    {
+      text_colour_ptr = (screen_pixel_t *)&graphics_purple_pixel;
     }
 
-    /* Draw separation line */
-    if(events_displayed != 0)
-    {
-      for(int i = 2; i < (EVENT_LINE_WIDTH-2); i++)
-      {
-        memcpy(&event_line_buffer[(events_displayed * EVENT_EACH_LINE_HEIGHT)-3][i], &graphics_subtlegrey_pixel, sizeof(screen_pixel_t));
-      }
-    }
+    /* Limit description length */
+    snprintf(alarm_display_description, sizeof(alarm_display_description)-1, "%s", alarm_cursor->description);
 
-    event_cursor = event_cursor->next;
-    events_displayed++;
+    /* Render description text */
+    font_render_colour_string_with_callback(
+      0, // Align left
+      (alarms_displayed * ALARM_EACH_LINE_HEIGHT),
+      &font_dejavu_sans_16, &graphics_black_pixel, text_colour_ptr,
+      alarm_display_description, alarm_line_render_font_cb
+    );
+
+    alarm_cursor = alarm_cursor->next;
+    alarms_displayed++;
   }
 
-  for(uint32_t i = 0; i < EVENT_LINE_HEIGHT; i++)
+  for(i = 0; i < ALARM_LINE_HEIGHT; i++)
   {
-    screen_setPixelLine(EVENT_LINE_POS_X, EVENT_LINE_POS_Y + i, EVENT_LINE_WIDTH, event_line_buffer[i]);
+    screen_setPixelLine(ALARM_LINE_POS_X, ALARM_LINE_POS_Y + i, ALARM_LINE_WIDTH, alarm_line_buffer[i]);
   }
 }
-#endif
 
 static inline void connectionstatus_render_font_cb(int x, int y, screen_pixel_t *pixel_ptr)
 {
@@ -302,10 +274,12 @@ static inline void connectionstatus_render_font_cb(int x, int y, screen_pixel_t 
 
 void connectionstatus_render(char *text_string, bool status_ok)
 {
+  int32_t i, j;
+
   /* Clear buffer */
-  for(uint32_t i = 0; i < CONNECTIONSTATUS_HEIGHT; i++)
+  for(i = 0; i < CONNECTIONSTATUS_HEIGHT; i++)
   {
-    for(uint32_t j = 0; j < CONNECTIONSTATUS_WIDTH; j++)
+    for(j = 0; j < CONNECTIONSTATUS_WIDTH; j++)
     {
       memcpy(&(connectionstatus_buffer[i][j]), &graphics_black_pixel, sizeof(screen_pixel_t));
     }
@@ -331,7 +305,7 @@ void connectionstatus_render(char *text_string, bool status_ok)
     connectionstatus_render_font_cb
   );
 
-  for(uint32_t i = 0; i < CONNECTIONSTATUS_HEIGHT; i++)
+  for(i = 0; i < CONNECTIONSTATUS_HEIGHT; i++)
   {
     screen_setPixelLine(CONNECTIONSTATUS_POS_X, CONNECTIONSTATUS_POS_Y + i, CONNECTIONSTATUS_WIDTH, connectionstatus_buffer[i]);
   }
@@ -339,6 +313,7 @@ void connectionstatus_render(char *text_string, bool status_ok)
 
 void flag_render(int32_t flag_status, bool acknowledged)
 {
+  int32_t i, j;
   screen_pixel_t *flag_colour_ptr;
 
   switch(flag_status)
@@ -352,17 +327,37 @@ void flag_render(int32_t flag_status, bool acknowledged)
     case 2:
       flag_colour_ptr = (screen_pixel_t *)&graphics_red_pixel;
       break;
+    case -1:
     default:
       flag_colour_ptr = (screen_pixel_t *)&graphics_darkgrey_pixel;
       break;
   }
 
-  if(acknowledged)
+  if (flag_status == -1)
+  {
+    // Striped grey
+    for(i = 0; i < FLAG_HEIGHT; i++)
+    {
+      for(j = 0; j < FLAG_WIDTH; j++)
+      {
+        //if(((float)(j)/FLAG_WIDTH) < ((float)(FLAG_HEIGHT-i)/FLAG_HEIGHT))
+        if(((i+j) % 200) > 100)
+        {
+          memcpy(&(flag_buffer[i][j]), &graphics_darkgrey_pixel, sizeof(screen_pixel_t));
+        }
+        else
+        {
+          memcpy(&(flag_buffer[i][j]), &graphics_subtlegrey_pixel, sizeof(screen_pixel_t));
+        }
+      }
+    }
+  }
+  else if(flag_status == 0 || acknowledged)
   {
     // Solid colour
-    for(uint32_t i = 0; i < FLAG_HEIGHT; i++)
+    for(i = 0; i < FLAG_HEIGHT; i++)
     {
-      for(uint32_t j = 0; j < FLAG_WIDTH; j++)
+      for(j = 0; j < FLAG_WIDTH; j++)
       {
         memcpy(&(flag_buffer[i][j]), flag_colour_ptr, sizeof(screen_pixel_t));
       }
@@ -384,28 +379,24 @@ void flag_render(int32_t flag_status, bool acknowledged)
       lower_colour_ptr = flag_colour_ptr;
     }
 
-    for(uint32_t i = 0; i < FLAG_HEIGHT/2; i++)
+    for(i = 0; i < FLAG_HEIGHT/2; i++)
     {
-      for(uint32_t j = 0; j < FLAG_WIDTH; j++)
+      for(j = 0; j < FLAG_WIDTH; j++)
       {
         memcpy(&(flag_buffer[i][j]), upper_colour_ptr, sizeof(screen_pixel_t));
       }
     }
 
-    for(uint32_t i = FLAG_HEIGHT/2; i < FLAG_HEIGHT; i++)
+    for(i = FLAG_HEIGHT/2; i < FLAG_HEIGHT; i++)
     {
-      for(uint32_t j = 0; j < FLAG_WIDTH; j++)
+      for(j = 0; j < FLAG_WIDTH; j++)
       {
         memcpy(&(flag_buffer[i][j]), lower_colour_ptr, sizeof(screen_pixel_t));
       }
     }
-
-
   }
 
-
-
-  for(uint32_t i = 0; i < FLAG_HEIGHT; i++)
+  for(i = 0; i < FLAG_HEIGHT; i++)
   {
     screen_setPixelLine(FLAG_POS_X, FLAG_POS_Y + i, FLAG_WIDTH, flag_buffer[i]);
   }

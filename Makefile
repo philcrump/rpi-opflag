@@ -2,7 +2,7 @@
 # Compile flags
 
 CC := gcc
-COPT := -O3 -march=native -mtune=native -D_FORTIFY_SOURCE=2 -fstack-protector-strong
+COPT := -O3 -march=native -fanalyzer -D_FORTIFY_SOURCE=2 -fstack-protector-strong
 
 CFLAGS := -Wall -Wextra -Wpedantic -Werror -std=gnu11 -D_GNU_SOURCE -DNEON_OPTS -pthread
 BUILD_VERSION := $(shell git describe --dirty --always 2>/dev/null)
@@ -21,6 +21,7 @@ SRCDIR := src
 
 SRCS := $(SRCDIR)/config.c \
 		$(SRCDIR)/touch.c \
+		$(SRCDIR)/buzzer.c \
 		$(SRCDIR)/backlight.c \
 		$(SRCDIR)/screen.c \
 		$(SRCDIR)/graphics.c \
@@ -30,17 +31,15 @@ SRCS := $(SRCDIR)/config.c \
 		$(SRCDIR)/font/dejavu_sans_48.c \
 		$(SRCDIR)/font/dejavu_sans_72.c \
 		$(SRCDIR)/clock.c \
-		$(SRCDIR)/events.c \
-		$(SRCDIR)/events-http.c \
+		$(SRCDIR)/alarms.c \
+		$(SRCDIR)/alarms-http.c \
 		$(SRCDIR)/util/ini.c \
-		$(SRCDIR)/util/crc.c \
-		$(SRCDIR)/util/json.c \
 		$(SRCDIR)/util/timing.c
 
 # ========================================================================================
 # External Libraries
 
-LDFLAGS := -lm -lcurl
+LDFLAGS := -lm -lcurl -llgpio -ljson-c
 
 # ========================================================================================
 # Makerules
@@ -59,9 +58,9 @@ opflag-waitnetwork: ${OBJS} $(SRCDIR)/main-waitnetwork.o
 
 %.o: %.c
 	@echo "  CC     "$<
-	@${CC} ${COPT} ${CFLAGS} -c -I src/ -fPIC -o $@ $<
+	@${CC} ${COPT} ${CFLAGS} -c -I src/ -MD -fPIC -o $@ $<
 
-debug: COPT = -O1 -gdwarf -fno-omit-frame-pointer -D__DEBUG
+debug: COPT = -Og -gdwarf -fno-omit-frame-pointer -D__DEBUG -fanalyzer -D_FORTIFY_SOURCE=2 -fstack-protector-strong
 debug: all
 
 _print_banner:

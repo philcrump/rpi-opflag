@@ -105,7 +105,7 @@ void screen_splash(char *lower_line)
 {
   char *splash_string;
 
-  int r = asprintf(&splash_string, "OpClock");
+  int r = asprintf(&splash_string, "OpFlag");
   if(r < 0)
   {
     // asprintf allocation of string failed
@@ -178,7 +178,7 @@ void screen_deinit(void)
 
 void *screen_thread(void *arg)
 {
-  bool *app_exit_ptr = (bool *)arg;
+  app_state_t *app_state_ptr = (app_state_t *)arg;
 
   /* Set up signal handler for timer */
   struct sigaction sa;
@@ -196,9 +196,9 @@ void *screen_thread(void *arg)
   timer.it_interval.tv_usec = SCREEN_RENDER_INTERVAL_MS*1000;
   setitimer(ITIMER_REAL, &timer, NULL);
 
-  while(!*app_exit_ptr)
+  while(!app_state_ptr->app_exit)
   {
-    sleep_ms_or_signal(1000, app_exit_ptr);
+    sleep_ms_or_signal(1000, &(app_state_ptr->app_exit));
   }
 
   /* De-initialise timer */

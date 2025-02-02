@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <stdatomic.h>
 #include <pthread.h>
 
 /* Only supporting the Official 7" touchscreen */
@@ -12,34 +13,40 @@
 
 #define NEON_ALIGNMENT (4*4*2) // 128b
 
-typedef struct eventt {
+typedef struct alarm_t {
   char *description;
-  time_t event_time;
-  int countdown_int;
-  char *countdown_string;
-  int type; // 0=None, 1=AoS, 2=Los, 3=Uplink Start, 4=Uplink Stop
-  struct eventt *next;
-} event_t;
+  time_t alarm_time;
+  int severity; // 0=None, 1=AoS, 2=Los, 3=Uplink Start, 4=Uplink Stop
+  struct alarm_t *next;
+} alarm_t;
 
 typedef struct {
   int32_t backlight_level;
 
-  char *event_source_file_filepath;
-  char *event_source_http_url;
+  char *http_url;
+  char *http_username;
+  char *http_password;
 
-  bool display_show_previous_expired_event;
+  bool acknowledge_single_touch;
+  bool acknowledge_double_touch;
 
+  bool buzzer_enable;
+  int32_t buzzer_gpio;
+  bool buzzer_active_high;
 } app_config_t;
 
 typedef struct {
-  event_t *events;
-  pthread_mutex_t events_mutex;
-  bool events_source_ok;
+  alarm_t *alarms;
+  pthread_mutex_t alarms_mutex;
 
-  bool flag_acknowledged;
+  atomic_bool http_ok;
+
+  atomic_bool flag_acknowledged;
+  atomic_int flag_severity;
+  atomic_int flag_laststatechange;
 
   app_config_t config;
-  bool app_exit;
+  atomic_bool app_exit;
 } app_state_t;
 
 #endif /* __MAIN_H__ */

@@ -41,7 +41,7 @@ void sleep_ms(uint32_t _duration)
     }
 }
 
-void sleep_ms_or_signal(uint32_t _duration, bool *app_exit_ptr)
+void sleep_ms_or_signal(uint32_t _duration, atomic_bool *app_exit_ptr)
 {
     struct timespec req, rem;
     req.tv_sec = _duration / 1000;

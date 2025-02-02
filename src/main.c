@@ -8,12 +8,13 @@
 #include <pthread.h>
 
 #include "main.h"
+#include "alarms.h"
 #include "backlight.h"
+#include "buzzer.h"
 #include "touch.h"
 #include "clock.h"
 #include "screen.h"
 #include "graphics.h"
-#include "events.h"
 #include "util/ini.h"
 #include "util/timing.h"
 
@@ -23,18 +24,23 @@
 int config_handler(void* user, const char* section, const char* name, const char* value);
 
 static app_state_t app_state = {
-  .events = NULL,
-  .events_mutex = PTHREAD_MUTEX_INITIALIZER,
+  .alarms = NULL,
+  .alarms_mutex = PTHREAD_MUTEX_INITIALIZER,
 
-  .events_source_ok = false,
-
-  .flag_acknowledged = false,
+  .http_ok = ATOMIC_VAR_INIT(false),
+  .flag_acknowledged = ATOMIC_VAR_INIT(false),
+  .flag_laststatechange = ATOMIC_VAR_INIT(0),
+  .flag_severity = ATOMIC_VAR_INIT(0),
 
   .config = {
     .backlight_level = 180,
-    .display_show_previous_expired_event = false
+
+    .acknowledge_single_touch = true,
+    .acknowledge_double_touch = false,
+
+    .buzzer_enable = false
   },
-  .app_exit = false
+  .app_exit = ATOMIC_VAR_INIT(false)
 };
 
 void sigint_handler(int sig)
@@ -53,8 +59,9 @@ void _print_usage(void)
 
 static pthread_t screen_thread_obj;
 static pthread_t touch_thread_obj;
+static pthread_t buzzer_thread_obj;
 static pthread_t clock_thread_obj;
-static pthread_t events_source_thread_obj;
+static pthread_t alarms_source_thread_obj;
 
 int main(int argc, char* argv[])
 {
@@ -94,7 +101,7 @@ int main(int argc, char* argv[])
   }
 
   /* Screen Render (backbuffer -> screen) Thread */
-  if(pthread_create(&screen_thread_obj, NULL, screen_thread, &app_state.app_exit))
+  if(pthread_create(&screen_thread_obj, NULL, screen_thread, &app_state))
   {
       fprintf(stderr, "Error creating %s pthread\n", "Screen");
       return 1;
@@ -109,7 +116,14 @@ int main(int argc, char* argv[])
   }
   pthread_setname_np(touch_thread_obj, "Touch");
 
-#if 0
+  /* Buzzer Thread */
+  if(pthread_create(&buzzer_thread_obj, NULL, buzzer_thread, &app_state))
+  {
+      fprintf(stderr, "Error creating %s pthread\n", "Buzzer");
+      return 1;
+  }
+  pthread_setname_np(buzzer_thread_obj, "Buzzer");
+
   /* Clock (time/date -> backbuffer) Thread */
   if(pthread_create(&clock_thread_obj, NULL, clock_thread, &app_state))
   {
@@ -117,37 +131,49 @@ int main(int argc, char* argv[])
       return 1;
   }
   pthread_setname_np(clock_thread_obj, "Clock");
-#endif
 
-#if 0
-  /* Event Source Thread */
-  if(pthread_create(&events_source_thread_obj, NULL, events_http_thread, &app_state))
+  /* Alarm Source Thread */
+  if(pthread_create(&alarms_source_thread_obj, NULL, alarms_http_thread, &app_state))
   {
-      fprintf(stderr, "Error creating %s pthread\n", "Events HTTP");
+      fprintf(stderr, "Error creating %s pthread\n", "Alarms HTTP");
       return 1;
   }
-  pthread_setname_np(events_source_thread_obj, "Events HTTP");
-#endif
+  pthread_setname_np(alarms_source_thread_obj, "Alarms HTTP");
 
   while(!app_state.app_exit)
   {
-    connectionstatus_render("Connection: Failure", false);
+    if(app_state.http_ok)
+    {
+      connectionstatus_render("Icinga Connection: OK", true);
+      flag_render(app_state.flag_severity, app_state.flag_acknowledged);
+    }
+    else
+    {
+      connectionstatus_render("Icinga Connection: Failure", false);
+      flag_render(-1, true);
+    }
 
-    flag_render(2, app_state.flag_acknowledged);
+    pthread_mutex_lock(&app_state.alarms_mutex);
+
+    alarms_render(app_state.http_ok, app_state.alarms);
+
+    pthread_mutex_unlock(&app_state.alarms_mutex);
 
     sleep_ms(100);
   }
 
-  printf("Got SIGTERM/INT..\n");
+  printf("\nReceived SIGTERM/INT..\n");
   app_state.app_exit = true;
 
-  pthread_kill(events_source_thread_obj, SIGINT);
+  pthread_kill(alarms_source_thread_obj, SIGINT);
   pthread_kill(clock_thread_obj, SIGINT);
+  pthread_kill(buzzer_thread_obj, SIGINT);
   pthread_kill(touch_thread_obj, SIGINT);
   pthread_kill(screen_thread_obj, SIGINT);
 
-  pthread_join(events_source_thread_obj, NULL);
+  pthread_join(alarms_source_thread_obj, NULL);
   pthread_join(clock_thread_obj, NULL);
+  pthread_join(buzzer_thread_obj, NULL);
   pthread_join(touch_thread_obj, NULL);
   pthread_join(screen_thread_obj, NULL);
 

@@ -8,21 +8,18 @@
 #include "main.h"
 #include "alarms.h"
 
-void alarms_append(alarm_t **alarms_ptr_ptr, time_t alarm_time, char* alarm_description, int alarm_type)
+void alarms_append(alarm_t **alarms_ptr_ptr, char* alarm_description, int alarm_severity)
 {
   alarm_t *new_alarm_ptr = (alarm_t *)malloc(sizeof(alarm_t));
 
   if(new_alarm_ptr == NULL)
   {
-    fprintf(stderr, "Error creating new alarm.\n");
+    fprintf(stderr, "[alarms_append] Error allocating memory for new alarm.\n");
     return;
   }
 
-  new_alarm_ptr->alarm_time = alarm_time;
   new_alarm_ptr->description = strdup(alarm_description);
-  new_alarm_ptr->type = event_type;
-  new_alarm_ptr->countdown_int = 0;
-  new_alarm_ptr->countdown_string = NULL;
+  new_alarm_ptr->severity = alarm_severity;
   new_alarm_ptr->next = NULL;
   if(*alarms_ptr_ptr == NULL)
   {
