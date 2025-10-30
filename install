@@ -16,7 +16,7 @@ echo "Installing/updating ${services} .."
 for service in $services; do
   skel="${service}.service.skel"
   temp="${service}.service"
-  sed "s#{{directory}}#${source_dir}#g" < $skel > $temp
+  sed "s#{{directory}}#${source_dir}#g ; s#{{user}}#$(echo "$SUDO_USER")#g" < $skel > $temp
   mv -f $temp /etc/systemd/system/
 done
 
