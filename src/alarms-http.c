@@ -149,6 +149,7 @@ void *alarms_http_thread(void *arg)
       {
         fprintf(stderr, "[alarms-http] Error: alarm doesn't contain service_display_name\n");
         //goto discard_json;
+        free(alarm_hostname);
         app_state_ptr->http_ok = false;
         sleep_ms_or_signal(HTTP_RETRY_PERIOD_S * 1000, &app_state_ptr->app_exit);
         continue;
@@ -159,6 +160,8 @@ void *alarms_http_thread(void *arg)
       {
         fprintf(stderr, "[alarms-http] Error: alarm doesn't contain service_output\n");
         //goto discard_json;
+        free(alarm_hostname);
+        free(alarm_servicename);
         app_state_ptr->http_ok = false;
         sleep_ms_or_signal(HTTP_RETRY_PERIOD_S * 1000, &app_state_ptr->app_exit);
         continue;
@@ -169,6 +172,9 @@ void *alarms_http_thread(void *arg)
       {
         fprintf(stderr, "[alarms-http] Error: alarm doesn't contain service_state\n");
         //goto discard_json;
+        free(alarm_hostname);
+        free(alarm_servicename);
+        free(alarm_output);
         app_state_ptr->http_ok = false;
         sleep_ms_or_signal(HTTP_RETRY_PERIOD_S * 1000, &app_state_ptr->app_exit);
         continue;
@@ -179,6 +185,9 @@ void *alarms_http_thread(void *arg)
       {
         fprintf(stderr, "[alarms-http] Error: alarm doesn't contain service_last_state_change\n");
         //goto discard_json;
+        free(alarm_hostname);
+        free(alarm_servicename);
+        free(alarm_output);
         app_state_ptr->http_ok = false;
         sleep_ms_or_signal(HTTP_RETRY_PERIOD_S * 1000, &app_state_ptr->app_exit);
         continue;
@@ -191,6 +200,10 @@ void *alarms_http_thread(void *arg)
         alarm_servicename,
         alarm_output
       );
+
+      free(alarm_hostname);
+      free(alarm_servicename);
+      free(alarm_output);
 
       if(alarm_state == 1 || alarm_state == 2)
       {
