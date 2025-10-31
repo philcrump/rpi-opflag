@@ -4,7 +4,7 @@ After=network-online.target
 
 [Service]
 Type=simple
-User=pi
+User={{user}}
 WorkingDirectory={{directory}}
 ExecStart={{directory}}/opflag
 Restart=always

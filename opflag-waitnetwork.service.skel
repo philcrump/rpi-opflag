@@ -4,7 +4,7 @@ After=local-fs.target sysinit.target
 
 [Service]
 Type=simple
-User=pi
+User={{user}}
 WorkingDirectory={{directory}}
 ExecStart={{directory}}/opflag-waitnetwork
 
